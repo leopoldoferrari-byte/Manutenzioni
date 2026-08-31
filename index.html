@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro Manutenzioni — Campofiore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --kraft-bg: #d9c79e;
+    --kraft-panel: #f1e9d2;
+    --kraft-panel-dark: #e7dab4;
+    --ink: #2e2415;
+    --ink-soft: #6b5c40;
+    --line: rgba(46,36,21,0.22);
+    --stamp-red: #9b3a2e;
+    --stamp-red-dim: rgba(155,58,46,0.12);
+    --stamp-green: #3b6b4a;
+    --stamp-green-dim: rgba(59,107,74,0.12);
+    --paper-shadow: rgba(46,36,21,0.18);
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--kraft-bg);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(46,36,21,0.05) 1px, transparent 0);
+    background-size: 14px 14px;
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+    padding: 28px 14px 60px;
+  }
+
+  .sheet{
+    width:100%;
+    max-width: 480px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom: 22px;
+  }
+
+  h1{
+    font-family: 'Roboto Slab', serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    margin: 0 0 4px;
+    letter-spacing: 0.2px;
+  }
+
+  header p{
+    margin:0;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+
+  .recorder{
+    background: var(--kraft-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 3px 0 var(--paper-shadow);
+    padding: 26px 20px 22px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+    margin-bottom: 24px;
+  }
+
+  #recBtn{
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 3px solid var(--stamp-red);
+    background: var(--kraft-panel);
+    color: var(--stamp-red);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+    flex-shrink:0;
+  }
+  #recBtn:hover{ transform: scale(1.03); }
+  #recBtn svg{ width:34px; height:34px; }
+
+  #recBtn.recording{
+    background: var(--stamp-red);
+    color: var(--kraft-panel);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse{
+    0%   { box-shadow: 0 0 0 0 rgba(155,58,46,0.35); }
+    70%  { box-shadow: 0 0 0 16px rgba(155,58,46,0); }
+    100% { box-shadow: 0 0 0 0 rgba(155,58,46,0); }
+  }
+
+  .status{
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    min-height: 1.1em;
+    text-align:center;
+  }
+
+  .live-transcript{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--ink);
+    background: var(--kraft-panel-dark);
+    border-left: 3px solid var(--stamp-red);
+    padding: 8px 10px;
+    width:100%;
+    min-height: 1.4em;
+    border-radius: 3px;
+    display:none;
+  }
+  .live-transcript.show{ display:block; }
+
+  .fallback-input{
+    display:none;
+    width:100%;
+    gap:8px;
+    flex-direction:column;
+  }
+  .fallback-input.show{ display:flex; }
+  .fallback-input input{
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:0.9rem;
+    padding:8px 10px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    background:#fff;
+  }
+  .fallback-input button{
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:0.85rem;
+    font-weight:600;
+    padding:8px 10px;
+    border-radius:5px;
+    border:1px solid var(--stamp-green);
+    background: var(--stamp-green-dim);
+    color: var(--stamp-green);
+    cursor:pointer;
+  }
+
+  .browser-note{
+    font-size:0.75rem;
+    color: var(--ink-soft);
+    text-align:center;
+    line-height:1.4;
+  }
+
+  .list-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    margin: 0 4px 8px;
+    display:flex;
+    justify-content:space-between;
+  }
+
+  .ticket{
+    background: var(--kraft-panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 12px 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 0 var(--paper-shadow);
+    position:relative;
+  }
+
+  .ticket-top{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+  }
+
+  .check{
+    width:20px;
+    height:20px;
+    border-radius:4px;
+    border: 2px solid var(--ink-soft);
+    flex-shrink:0;
+    margin-top:2px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#fff;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  .check.done{
+    background: var(--stamp-green);
+    border-color: var(--stamp-green);
+  }
+  .check svg{ width:13px; height:13px; opacity:0; }
+  .check.done svg{ opacity:1; }
+
+  .ticket-text{
+    flex:1;
+    font-size: 0.95rem;
+    line-height:1.35;
+    outline:none;
+    min-height:1.3em;
+  }
+  .ticket-text.done{
+    color: var(--ink-soft);
+    text-decoration: line-through;
+    text-decoration-color: var(--stamp-green);
+  }
+
+  .del{
+    background:none;
+    border:none;
+    color: var(--ink-soft);
+    font-size: 1rem;
+    cursor:pointer;
+    line-height:1;
+    padding:2px 4px;
+    flex-shrink:0;
+  }
+  .del:hover{ color: var(--stamp-red); }
+
+  .ticket-bottom{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+
+  .ticket-bottom audio{
+    height: 30px;
+    max-width: 170px;
+  }
+
+  .stamp{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    font-weight:500;
+    letter-spacing: 0.4px;
+    padding: 3px 7px;
+    border-radius: 3px;
+    border: 1.5px solid currentColor;
+    transform: rotate(-2deg);
+    white-space:nowrap;
+  }
+  .stamp.todo{ color: var(--stamp-red); background: var(--stamp-red-dim); }
+  .stamp.done{ color: var(--stamp-green); background: var(--stamp-green-dim); }
+
+  .timestamp{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+  }
+
+  .empty{
+    text-align:center;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    padding: 26px 10px;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    line-height:1.5;
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <h1>Registro Manutenzioni</h1>
+    <p>Residenza Campofiore</p>
+  </header>
+
+  <div class="recorder">
+    <button id="recBtn" aria-label="Registra intervento">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+    </button>
+    <div class="status" id="status">Tocca per registrare un intervento</div>
+    <div class="live-transcript" id="liveTranscript"></div>
+    <div class="fallback-input" id="fallbackInput">
+      <input type="text" id="fallbackText" placeholder="Scrivi qui la manutenzione da registrare…">
+      <button id="fallbackSave">Aggiungi alla lista</button>
+    </div>
+    <div class="browser-note" id="browserNote"></div>
+  </div>
+
+  <div class="list-label"><span>INTERVENTI</span><span id="listCount"></span></div>
+  <div id="list"></div>
+</div>
+
+<script>
+(function(){
+  const recBtn = document.getElementById('recBtn');
+  const statusEl = document.getElementById('status');
+  const liveTranscript = document.getElementById('liveTranscript');
+  const listEl = document.getElementById('list');
+  const listCount = document.getElementById('listCount');
+  const browserNote = document.getElementById('browserNote');
+  const fallbackWrap = document.getElementById('fallbackInput');
+  const fallbackText = document.getElementById('fallbackText');
+  const fallbackSave = document.getElementById('fallbackSave');
+
+  const STORAGE_KEY = 'campofiore-interventi';
+  let tasks = [];
+  let recognizing = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recognition = null;
+  let finalTranscript = '';
+
+  const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const speechSupported = !!SpeechRecognitionImpl;
+
+  if(!speechSupported){
+    browserNote.textContent = 'Trascrizione automatica non disponibile su questo browser: registra comunque l\'audio, poi scrivi tu la descrizione qui sotto.';
+    fallbackWrap.classList.add('show');
+  }
+
+  async function loadTasks(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, false);
+      tasks = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){
+      tasks = [];
+    }
+    render();
+  }
+
+  async function saveTasks(){
+    try{
+      await window.storage.set(STORAGE_KEY, JSON.stringify(tasks), false);
+    }catch(e){
+      console.error('Salvataggio non riuscito', e);
+    }
+  }
+
+  function formatTime(iso){
+    const d = new Date(iso);
+    return d.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'}) + ' ' + d.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function render(){
+    listCount.textContent = tasks.length ? tasks.length + (tasks.length === 1 ? ' voce' : ' voci') : '';
+    if(!tasks.length){
+      listEl.innerHTML = '<div class="empty">Nessun intervento registrato.<br>Premi il pulsante rosso per aggiungere la prima segnalazione.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    tasks.forEach(task => {
+      const ticket = document.createElement('div');
+      ticket.className = 'ticket';
+
+      const top = document.createElement('div');
+      top.className = 'ticket-top';
+
+      const check = document.createElement('div');
+      check.className = 'check' + (task.done ? ' done' : '');
+      check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      check.onclick = () => toggleDone(task.id);
+
+      const text = document.createElement('div');
+      text.className = 'ticket-text' + (task.done ? ' done' : '');
+      text.contentEditable = 'true';
+      text.textContent = task.text;
+      text.onblur = () => updateText(task.id, text.textContent);
+
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.setAttribute('aria-label', 'Elimina');
+      del.textContent = '✕';
+      del.onclick = () => deleteTask(task.id);
+
+      top.appendChild(check);
+      top.appendChild(text);
+      top.appendChild(del);
+
+      const bottom = document.createElement('div');
+      bottom.className = 'ticket-bottom';
+
+      const left = document.createElement('div');
+      left.style.display = 'flex';
+      left.style.alignItems = 'center';
+      left.style.gap = '8px';
+
+      const ts = document.createElement('span');
+      ts.className = 'timestamp';
+      ts.textContent = formatTime(task.createdAt);
+      left.appendChild(ts);
+
+      if(task.audio){
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = task.audio;
+        left.appendChild(audio);
+      }
+
+      const stamp = document.createElement('span');
+      stamp.className = 'stamp ' + (task.done ? 'done' : 'todo');
+      stamp.textContent = task.done ? 'FATTO' : 'DA FARE';
+
+      bottom.appendChild(left);
+      bottom.appendChild(stamp);
+
+      ticket.appendChild(top);
+      ticket.appendChild(bottom);
+      listEl.appendChild(ticket);
+    });
+  }
+
+  function toggleDone(id){
+    const t = tasks.find(x => x.id === id);
+    if(t){ t.done = !t.done; saveTasks(); render(); }
+  }
+
+  function updateText(id, newText){
+    const t = tasks.find(x => x.id === id);
+    if(t && newText.trim()){ t.text = newText.trim(); saveTasks(); }
+    else render();
+  }
+
+  function deleteTask(id){
+    tasks = tasks.filter(x => x.id !== id);
+    saveTasks();
+    render();
+  }
+
+  function addTask(text, audioDataUrl){
+    const task = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+      text: text || 'Intervento registrato',
+      audio: audioDataUrl || null,
+      done: false,
+      createdAt: new Date().toISOString()
+    };
+    tasks.unshift(task);
+    saveTasks();
+    render();
+  }
+
+  function blobToDataURL(blob){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function startRecording(){
+    let stream;
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }catch(e){
+      statusEl.textContent = 'Microfono non disponibile: controlla i permessi del browser.';
+      return;
+    }
+
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.start();
+
+    finalTranscript = '';
+    if(speechSupported){
+      recognition = new SpeechRecognitionImpl();
+      recognition.lang = 'it-IT';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        for(let i = event.resultIndex; i < event.results.length; i++){
+          const transcript = event.results[i][0].transcript;
+          if(event.results[i].isFinal){ finalTranscript += transcript + ' '; }
+          else{ interim += transcript; }
+        }
+        liveTranscript.classList.add('show');
+        liveTranscript.textContent = (finalTranscript + interim).trim() || '…';
+      };
+      recognition.onerror = () => {};
+      recognition.start();
+    }
+
+    recBtn.classList.add('recording');
+    statusEl.textContent = 'In ascolto… tocca di nuovo per fermare';
+    recognizing = true;
+  }
+
+  function stopRecording(){
+    recBtn.classList.remove('recording');
+    statusEl.textContent = 'Elaborazione…';
+    recognizing = false;
+
+    if(recognition){
+      recognition.stop();
+      recognition = null;
+    }
+
+    if(mediaRecorder){
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        let dataUrl = null;
+        try{ dataUrl = await blobToDataURL(blob); }catch(e){}
+
+        const text = finalTranscript.trim();
+        if(text){
+          addTask(text, dataUrl);
+          statusEl.textContent = 'Intervento aggiunto alla lista';
+        }else if(!speechSupported){
+          window._pendingAudio = dataUrl;
+          statusEl.textContent = 'Audio registrato: scrivi la descrizione qui sotto';
+          fallbackWrap.classList.add('show');
+        }else{
+          statusEl.textContent = 'Non ho capito nulla, riprova a registrare più vicino al microfono';
+        }
+        liveTranscript.classList.remove('show');
+        liveTranscript.textContent = '';
+
+        setTimeout(() => {
+          if(!recognizing) statusEl.textContent = 'Tocca per registrare un intervento';
+        }, 2200);
+
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.stop();
+    }
+  }
+
+  recBtn.addEventListener('click', () => {
+    if(recognizing){ stopRecording(); }
+    else{ startRecording(); }
+  });
+
+  fallbackSave.addEventListener('click', () => {
+    const val = fallbackText.value.trim();
+    if(!val) return;
+    addTask(val, window._pendingAudio || null);
+    window._pendingAudio = null;
+    fallbackText.value = '';
+    statusEl.textContent = 'Tocca per registrare un intervento';
+  });
+
+  fallbackText.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') fallbackSave.click();
+  });
+
+  loadTasks();
+})();
+</script>
+</body>
+</html>
