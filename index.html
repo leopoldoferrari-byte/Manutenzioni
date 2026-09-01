@@ -317,6 +317,7 @@
   let audioChunks = [];
   let recognition = null;
   let finalTranscript = '';
+  let lastRecognitionError = null;
 
   const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
   const speechSupported = !!SpeechRecognitionImpl;
@@ -487,7 +488,28 @@
         liveTranscript.classList.add('show');
         liveTranscript.textContent = (finalTranscript + interim).trim() || '…';
       };
-      recognition.onerror = () => {};
+
+      recognition.onerror = (event) => {
+        const messages = {
+          'not-allowed': 'Permesso microfono negato per la trascrizione: controlla le impostazioni del sito in Chrome.',
+          'no-speech': 'Non sento parlato, continuo ad ascoltare…',
+          'network': 'Connessione assente: la trascrizione richiede internet.',
+          'audio-capture': 'Nessun microfono rilevato.',
+          'aborted': ''
+        };
+        const msg = messages[event.error];
+        if(msg) statusEl.textContent = msg;
+        lastRecognitionError = event.error;
+      };
+
+      // Su Chrome Android il riconoscimento continuo si interrompe da solo
+      // dopo pochi secondi: lo riavviamo finché la registrazione è attiva.
+      recognition.onend = () => {
+        if(recognizing){
+          try{ recognition.start(); }catch(e){}
+        }
+      };
+
       recognition.start();
     }
 
@@ -520,9 +542,14 @@
           window._pendingAudio = dataUrl;
           statusEl.textContent = 'Audio registrato: scrivi la descrizione qui sotto';
           fallbackWrap.classList.add('show');
+        }else if(lastRecognitionError === 'not-allowed'){
+          statusEl.textContent = 'Permesso trascrizione negato: vai in Chrome ⋮ → Impostazioni sito → Microfono e consenti l\'accesso a questo sito.';
+        }else if(lastRecognitionError === 'network'){
+          statusEl.textContent = 'Nessuna connessione internet: la trascrizione vocale ne ha bisogno.';
         }else{
           statusEl.textContent = 'Non ho capito nulla, riprova a registrare più vicino al microfono';
         }
+        lastRecognitionError = null;
         liveTranscript.classList.remove('show');
         liveTranscript.textContent = '';
 
