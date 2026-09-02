@@ -313,9 +313,12 @@
   const STORAGE_KEY = 'campofiore-interventi';
   let tasks = [];
   let recognizing = false;
+  let stopping = false;
+  let finalized = false;
   let recognition = null;
   let finalTranscript = '';
   let lastRecognitionError = null;
+  let stopSafetyTimer = null;
 
   const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
   const speechSupported = !!SpeechRecognitionImpl;
@@ -346,6 +349,41 @@
   function formatTime(iso){
     const d = new Date(iso);
     return d.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'}) + ' ' + d.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  }
+
+  // --- Fix anti-ripetizione ---
+  // Su Chrome Android il riconoscimento vocale "continuo" si interrompe da
+  // solo ogni pochi secondi (evento onend) e viene riavviato dal codice qui
+  // sotto. Ad ogni riavvio il motore a volte ritrascrive come "finale" un
+  // pezzetto di audio già sentito nella sessione precedente, causando la
+  // ripetizione a catena della stessa parola/frase. Questa funzione ripulisce
+  // il testo da ripetizioni consecutive di gruppi di 1-4 parole prima di
+  // salvarlo, senza toccare eventuali ripetizioni volute dall'utente distanti
+  // nel testo.
+  function dedupeRepeats(text){
+    let words = text.trim().split(/\s+/).filter(Boolean);
+    if(words.length < 2) return words.join(' ');
+
+    for(let groupSize = 4; groupSize >= 1; groupSize--){
+      const result = [];
+      let i = 0;
+      while(i < words.length){
+        const group = words.slice(i, i + groupSize).join(' ').toLowerCase();
+        let j = i + groupSize;
+        // avanza finché il gruppo successivo è identico (ripetizione consecutiva)
+        while(
+          group &&
+          words.slice(j, j + groupSize).join(' ').toLowerCase() === group &&
+          words.slice(j, j + groupSize).length === groupSize
+        ){
+          j += groupSize;
+        }
+        result.push(...words.slice(i, i + groupSize));
+        i = j;
+      }
+      words = result;
+    }
+    return words.join(' ');
   }
 
   function render(){
@@ -484,9 +522,16 @@
     };
 
     // Su Chrome Android il riconoscimento continuo si interrompe da solo
-    // dopo pochi secondi: lo riavviamo finché la registrazione è attiva.
+    // dopo pochi secondi: lo riavviamo finché la registrazione è attiva
+    // E l'utente non ha chiesto di fermarsi. Quando invece l'utente ha
+    // premuto stop, onend è il momento GIUSTO in cui il motore ha finito
+    // di elaborare anche l'ultimo pezzetto di parlato in corso (quello che
+    // fino a un attimo prima era solo "interim"): per questo la
+    // finalizzazione avviene qui, non subito dopo aver chiamato stop().
     recognition.onend = () => {
-      if(recognizing){
+      if(stopping){
+        finalizeRecording();
+      }else if(recognizing){
         try{ recognition.start(); }catch(e){}
       }
     };
@@ -501,20 +546,51 @@
     recBtn.classList.add('recording');
     statusEl.textContent = 'In ascolto… tocca di nuovo per fermare';
     recognizing = true;
+    stopping = false;
+    finalized = false;
   }
 
+  // Chiamata quando l'utente tocca il pulsante per fermare la registrazione.
+  // Non legge subito il testo: chiede semplicemente lo stop e aspetta che
+  // il motore confermi con onend (vedi sopra), così l'ultimo frammento di
+  // parlato fa in tempo a diventare "finale" prima di essere salvato.
   function stopRecording(){
     recBtn.classList.remove('recording');
     statusEl.textContent = 'Elaborazione…';
     recognizing = false;
+    stopping = true;
+
+    if(recognition){
+      recognition.stop();
+    }else{
+      finalizeRecording();
+    }
+
+    // Rete di sicurezza: su alcuni browser onend potrebbe non arrivare mai.
+    // Se dopo 1.5s non è ancora scattata la finalizzazione, la forziamo
+    // comunque con quello che abbiamo raccolto finora.
+    clearTimeout(stopSafetyTimer);
+    stopSafetyTimer = setTimeout(() => {
+      if(stopping) finalizeRecording();
+    }, 1500);
+  }
+
+  // Punto unico in cui il testo raccolto viene davvero salvato come
+  // intervento. Viene invocato da onend (caso normale) o dal timer di
+  // sicurezza qui sopra (fallback). Il guard "finalized" evita di eseguirlo
+  // due volte se entrambi dovessero scattare.
+  function finalizeRecording(){
+    if(finalized) return;
+    finalized = true;
+    stopping = false;
+    clearTimeout(stopSafetyTimer);
 
     if(recognition){
       recognition.onend = null;
-      recognition.stop();
       recognition = null;
     }
 
-    const text = finalTranscript.trim();
+    const text = dedupeRepeats(finalTranscript.trim());
     if(text){
       addTask(text, null);
       statusEl.textContent = 'Intervento aggiunto alla lista';
@@ -536,7 +612,7 @@
 
   recBtn.addEventListener('click', () => {
     if(recognizing){ stopRecording(); }
-    else{ startRecording(); }
+    else if(!stopping){ startRecording(); }
   });
 
   fallbackSave.addEventListener('click', () => {
